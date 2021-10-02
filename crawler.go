@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 	"sync"
-	"time"
+	//"time"
 )
 
 type Fetcher interface {
@@ -29,12 +29,12 @@ func Crawl(url string, depth int, fetcher Fetcher) {
 
 	go func() {
 		var crawl func(url string, depth int, fetcher Fetcher)
+		wg.Add(1)
 		crawl = func(url string, depth int, fetcher Fetcher) {
-			wg.Add(1)
+			defer wg.Done()
+			fmt.Println(wg)
+
 			if depth <= 0 {
-				//fmt.Println("0",wg)
-				wg.Done()
-				//fmt.Println("0",wg)
 				return
 			}
 
@@ -42,40 +42,27 @@ func Crawl(url string, depth int, fetcher Fetcher) {
 				mu.Lock()
 				visited[url] = true
 				mu.Unlock()
-				//fmt.Println(visited)
 
 				_, urls, err := fetcher.Fetch(url)
 				if err != nil {
 					fmt.Println(err)
-					//fmt.Println("1",wg)
-					wg.Done()
-					//fmt.Println("1",wg)
 					return
 				}
 
-				//fmt.Printf("found: %s %q %d \n", url, body, depth)
-
 				for _, u := range urls {
-
-					//fmt.Println(wg)
+					wg.Add(1)
 					go crawl(u, depth-1, fetcher)
-
-					//fmt.Println("Done",wg)
 				}
 				ch <- url
-
 			}
-			//fmt.Println("2",wg)
-			wg.Done()
-			//fmt.Println("2",wg)
 		}
 
 		crawl(url, depth, fetcher)
 
-		time.Sleep(time.Second)
 		wg.Wait()
 
 		quit <- 1
+
 	}()
 
 	for {
@@ -86,14 +73,6 @@ func Crawl(url string, depth int, fetcher Fetcher) {
 			return
 		}
 	}
-
-	/*
-		for	{
-			// lock
-			Data[<-ch] = true
-			// unlock
-		}
-	*/
 
 	return
 }
@@ -150,3 +129,4 @@ var fetcher = fakeFetcher{
 		},
 	},
 }
+
